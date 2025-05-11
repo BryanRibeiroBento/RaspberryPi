@@ -21,7 +21,7 @@
 import sys
 import time
 from PIL import Image
-import GC9A01 as GC9A01
+from GC9A01 import GC9A01
 from os import listdir
 from os.path import isfile, join
 
@@ -42,12 +42,15 @@ loop = True if sys.argv[3] in ["yes", "true", "True", "1"] else False
 
 # Create GC9A01 LCD display class.
 disp = GC9A01.GC9A01(
-    port=0,
-    cs=GC9A01.BG_SPI_CS_BACK,  # BG_SPI_CSB_BACK or BG_SPI_CS_FRONT
-    dc=9,
-    rst=24,
-    backlight=19,               # 18 for back BG slot, 19 for front BG slot.
-    spi_speed_hz=80 * 1000 * 1000
+   port = 0,
+	cs = 0,
+	dc = 25,
+	backlight = 18,
+	rst = 24,
+	width = 240,
+	height = 240,
+	rotation = 0,
+	spi_speed_hz = 40000000
 )
 
 WIDTH = disp.width
