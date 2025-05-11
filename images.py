@@ -21,6 +21,7 @@
 import sys
 import time
 from PIL import Image
+sys.path.append(os.path.join(os.path.dirname(__file__),'library'))
 from GC9A01 import GC9A01
 from os import listdir
 from os.path import isfile, join
