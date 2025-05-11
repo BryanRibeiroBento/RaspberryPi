@@ -20,6 +20,7 @@
 # THE SOFTWARE.
 import sys
 import time
+import os
 from PIL import Image
 sys.path.append(os.path.join(os.path.dirname(__file__),'library'))
 from GC9A01 import GC9A01
