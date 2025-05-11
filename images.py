@@ -41,7 +41,7 @@ delay = float(sys.argv[2])
 loop = True if sys.argv[3] in ["yes", "true", "True", "1"] else False
 
 # Create GC9A01 LCD display class.
-disp = GC9A01.GC9A01(
+disp = GC9A01(
    port = 0,
 	cs = 0,
 	dc = 25,
