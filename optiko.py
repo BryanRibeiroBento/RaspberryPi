@@ -23,11 +23,11 @@ display = GC9A01(
 
 test = 12
 
-image = Image.new("RGB",(240,240),(0,0,0))
+image = Image.new("RGB",(240,240),(15,32,128))
 draw = ImageDraw.Draw(image)
 
 font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",20)
-text = "That Worked Marcao"
+text = "Testing if it works"
 
 w,h = draw.textsize(text, font = font)
 x = (240-w)//2
