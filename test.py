@@ -1,33 +1,25 @@
-import os
-os.environ["SDL_AUDIODRIVER"] = "alsa"  # FORÇA USO DO ALSA
-
 import sys
+import os
 import time
+import subprocess
+import threading
+from PIL import Image
 import spidev
 import RPi.GPIO as GPIO
-from PIL import Image
-import pygame
-import threading
 
-
-
-# === Inicia o mixer para tocar música ===
-pygame.mixer.init()
-pygame.mixer.music.load("jazz.wav")  # Altere o nome do arquivo se necessário
-
-# === Toca a música em uma thread separada ===
+# === Função que toca o áudio via subprocess com aplay ===
 def play_music():
-    pygame.mixer.music.play()
-    while pygame.mixer.music.get_busy():
-        time.sleep(1)
+    subprocess.run(["/usr/bin/aplay", "-D", "plughw:1,0", "jazz.wav"])
 
+# Inicia a thread para tocar o áudio
 music_thread = threading.Thread(target=play_music)
 music_thread.start()
 
-# === Inicia o display ===
+# Adiciona o caminho do driver GC9A01
 sys.path.append(os.path.join(os.path.dirname(__file__), 'library'))
 from GC9A01 import GC9A01
 
+# Inicializa o display
 display = GC9A01(
     port=0,
     cs=0,
@@ -40,17 +32,21 @@ display = GC9A01(
     spi_speed_hz=40000000
 )
 
-# === Carrega imagem base ===
+# Carrega a imagem
 img_path = "badbunny.png"
 base_image = Image.open(img_path).convert("RGB").resize((240, 240))
 
-# === Loop de animação ===
+# Define tempo aproximado da música (em segundos)
+MUSIC_DURATION = 70  # ajuste conforme necessário
+
+# Loop de animação
 angle = 0
-while pygame.mixer.music.get_busy():  # roda enquanto a música estiver tocando
+start_time = time.time()
+while time.time() - start_time < MUSIC_DURATION:
     rotated = base_image.rotate(angle)
     display.display(rotated)
     angle = (angle + 5) % 360
     time.sleep(0.05)
 
-# Opcional: limpa tela ou mostra imagem estática ao fim
+# Mostra imagem parada após o fim da música
 display.display(base_image)
