@@ -37,7 +37,7 @@ img_path = "badbunny.png"
 base_image = Image.open(img_path).convert("RGB").resize((240, 240))
 
 # Define tempo aproximado da música (em segundos)
-MUSIC_DURATION = 70  # ajuste conforme necessário
+MUSIC_DURATION = 5  # ajuste conforme necessário
 
 # Loop de animação
 angle = 0
@@ -50,3 +50,4 @@ while time.time() - start_time < MUSIC_DURATION:
 
 # Mostra imagem parada após o fim da música
 display.display(base_image)
+os.system("sudo systemctl restart alsa-utils")
