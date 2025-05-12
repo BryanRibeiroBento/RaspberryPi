@@ -1,11 +1,15 @@
-import sys
 import os
+os.environ["SDL_AUDIODRIVER"] = "alsa"  # FORÇA USO DO ALSA
+
+import sys
 import time
 import spidev
 import RPi.GPIO as GPIO
 from PIL import Image
 import pygame
 import threading
+
+
 
 # === Inicia o mixer para tocar música ===
 pygame.mixer.init()
