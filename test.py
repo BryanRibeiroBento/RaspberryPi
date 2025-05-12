@@ -7,19 +7,18 @@ from PIL import Image
 import spidev
 import RPi.GPIO as GPIO
 
-# === Função que toca o áudio via subprocess com aplay ===
+# === Inicia thread para tocar a música usando WM8960 ===
 def play_music():
-    subprocess.run(["/usr/bin/aplay", "-D", "plughw:1,0", "jazz.wav"])
+    subprocess.run(["aplay", "-D", "hw:1,0", "jazz.wav"])
 
-# Inicia a thread para tocar o áudio
 music_thread = threading.Thread(target=play_music)
 music_thread.start()
 
-# Adiciona o caminho do driver GC9A01
+# === Carrega driver da tela ===
 sys.path.append(os.path.join(os.path.dirname(__file__), 'library'))
 from GC9A01 import GC9A01
 
-# Inicializa o display
+# === Inicializa o display ===
 display = GC9A01(
     port=0,
     cs=0,
@@ -32,22 +31,23 @@ display = GC9A01(
     spi_speed_hz=40000000
 )
 
-# Carrega a imagem
+# === Carrega e exibe imagem girando ===
 img_path = "badbunny.png"
 base_image = Image.open(img_path).convert("RGB").resize((240, 240))
 
-# Define tempo aproximado da música (em segundos)
-MUSIC_DURATION = 5  # ajuste conforme necessário
-
-# Loop de animação
+# Roda a animação enquanto a música toca (ex: 70 segundos)
 angle = 0
 start_time = time.time()
-while time.time() - start_time < MUSIC_DURATION:
+duration = 70  # ajuste conforme duração da música
+
+while time.time() - start_time < duration:
     rotated = base_image.rotate(angle)
     display.display(rotated)
     angle = (angle + 5) % 360
     time.sleep(0.05)
 
-# Mostra imagem parada após o fim da música
+# Exibe imagem estática no fim
 display.display(base_image)
-os.system("sudo systemctl restart alsa-utils")
+
+# (Opcional) Reinicia o áudio após script:
+# subprocess.run(["sudo", "systemctl", "restart", "alsa-utils.service"])
