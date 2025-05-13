@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import threading
 from PIL import Image
 import sounddevice as sd
 import soundfile as sf
@@ -12,16 +13,24 @@ img_path = os.path.join(base_dir, "badbunny.png")
 
 # === Lê o áudio
 data, samplerate = sf.read(audio_path)
-duration = len(data) / samplerate  # duração em segundos
+duration = len(data) / samplerate
 
-# === Toca o áudio antes de mexer com o display
-print("▶️ Tocando áudio...")
-sd.default.device = ('', 1)  # garante que será a saída correta (WM8960)
-sd.play(data, samplerate)
-sd.wait()
-print("✅ Áudio finalizado.")
+# === Função para tocar o áudio ===
+def tocar_audio():
+    print("▶️ Tocando áudio...")
+    sd.default.device = ('', 1)  # Define saída como WM8960
+    sd.play(data, samplerate)
+    sd.wait()
+    print("✅ Áudio finalizado.")
 
-# === Agora inicializa o display
+# === Thread de reprodução ===
+audio_thread = threading.Thread(target=tocar_audio)
+audio_thread.start()
+
+# Aguarda 1 segundo para garantir que o som começou antes de iniciar o display
+time.sleep(1)
+
+# === Agora inicializa o display ===
 sys.path.append(os.path.join(base_dir, "library"))
 from GC9A01 import GC9A01
 
@@ -37,16 +46,17 @@ display = GC9A01(
     spi_speed_hz=40000000
 )
 
-# === Mostra imagem girando (opcional)
+# === Mostra imagem girando enquanto o áudio ainda toca ===
 base_image = Image.open(img_path).convert("RGB").resize((240, 240))
 angle = 0
 start_time = time.time()
 
+# Loop por no máximo o tempo da música
 while time.time() - start_time < duration:
     rotated = base_image.rotate(angle)
     display.display(rotated)
     angle = (angle + 5) % 360
     time.sleep(0.05)
 
-# Imagem final
+# Exibe imagem final
 display.display(base_image)
