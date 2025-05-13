@@ -14,7 +14,14 @@ img_path = os.path.join(base_dir, "badbunny.png")
 data, samplerate = sf.read(audio_path)
 duration = len(data) / samplerate  # duração em segundos
 
-# === Inicializa o display
+# === Toca o áudio antes de mexer com o display
+print("▶️ Tocando áudio...")
+sd.default.device = ('', 1)  # garante que será a saída correta (WM8960)
+sd.play(data, samplerate)
+sd.wait()
+print("✅ Áudio finalizado.")
+
+# === Agora inicializa o display
 sys.path.append(os.path.join(base_dir, "library"))
 from GC9A01 import GC9A01
 
@@ -30,15 +37,8 @@ display = GC9A01(
     spi_speed_hz=40000000
 )
 
-# === Carrega imagem
+# === Mostra imagem girando (opcional)
 base_image = Image.open(img_path).convert("RGB").resize((240, 240))
-
-# === Inicia reprodução de áudio
-print("▶️ Tocando áudio e exibindo animação...")
-sd.default.device = ('', 1)
-sd.play(data, samplerate)
-
-# === Anima a imagem enquanto o som toca
 angle = 0
 start_time = time.time()
 
@@ -48,7 +48,5 @@ while time.time() - start_time < duration:
     angle = (angle + 5) % 360
     time.sleep(0.05)
 
-# === Finaliza som (caso necessário) e exibe imagem final
-sd.stop()
+# Imagem final
 display.display(base_image)
-print("✅ Fim da execução.")
