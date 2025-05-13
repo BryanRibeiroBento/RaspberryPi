@@ -1,27 +1,20 @@
 import os
 import sys
 import time
-from PIL import Image
+from PIL import Image, ImageSequence
 import sounddevice as sd
 import soundfile as sf
 
-# === Caminhos ===
+# === Caminhos
 base_dir = os.path.dirname(__file__)
-audio_path = os.path.join(base_dir, "jazz.wav")
-img_path = os.path.join(base_dir, "badbunny.png")
+gif_path = os.path.join(base_dir, "output.gif")      # GIF otimizado (240x240)
+audio_path = os.path.join(base_dir, "jazz.wav")       # Arquivo de áudio
 
 # === Lê o áudio
 data, samplerate = sf.read(audio_path)
-duration = len(data) / samplerate  # duração em segundos
+duration = len(data) / samplerate  # em segundos
 
-# === Toca o áudio antes de mexer com o display
-print("▶️ Tocando áudio...")
-sd.default.device = ('', 1)  # garante que será a saída correta (WM8960)
-sd.play(data, samplerate)
-sd.wait()
-print("✅ Áudio finalizado.")
-
-# === Agora inicializa o display
+# === Inicializa o display
 sys.path.append(os.path.join(base_dir, "library"))
 from GC9A01 import GC9A01
 
@@ -37,16 +30,28 @@ display = GC9A01(
     spi_speed_hz=40000000
 )
 
-# === Mostra imagem girando (opcional)
-base_image = Image.open(img_path).convert("RGB").resize((240, 240))
-angle = 0
-start_time = time.time()
+# === Carrega os frames do GIF
+print("📦 Carregando GIF...")
+gif = Image.open(gif_path)
+frames = [frame.copy().convert("RGB") for frame in ImageSequence.Iterator(gif)]
+durations = [frame.info.get("duration", 100) / 1000.0 for frame in ImageSequence.Iterator(gif)]  # em segundos
 
-while time.time() - start_time < duration:
-    rotated = base_image.rotate(angle)
-    display.display(rotated)
-    angle = (angle + 5) % 360
-    time.sleep(0.05)
+# === Inicia o áudio no processo principal
+sd.default.device = ('', 1)  # WM8960 como saída
+print("▶️ Tocando áudio e exibindo animação...")
+sd.play(data, samplerate)
 
-# Imagem final
-display.display(base_image)
+# === Exibe a animação enquanto o som toca
+start = time.time()
+idx = 0
+
+while time.time() - start < duration:
+    frame = frames[idx % len(frames)]
+    display.display(frame)
+    time.sleep(durations[idx % len(durations)])
+    idx += 1
+
+# === Finaliza som e exibe frame final
+sd.stop()
+display.display(frames[-1])
+print("✅ Execução concluída.")
