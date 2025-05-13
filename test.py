@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import threading
 from PIL import Image
 import sounddevice as sd
 import soundfile as sf
@@ -12,16 +13,9 @@ img_path = os.path.join(base_dir, "badbunny.png")
 
 # === Lê o áudio
 data, samplerate = sf.read(audio_path)
-duration = len(data) / samplerate  # duração em segundos
+duration = len(data) / samplerate
 
-# === Toca o áudio antes de mexer com o display
-print("▶️ Tocando áudio...")
-sd.default.device = ('', 1)  # garante que será a saída correta (WM8960)
-sd.play(data, samplerate)
-sd.wait()
-print("✅ Áudio finalizado.")
-
-# === Agora inicializa o display
+# === Inicializa o display (agora pode vir antes)
 sys.path.append(os.path.join(base_dir, "library"))
 from GC9A01 import GC9A01
 
@@ -37,16 +31,30 @@ display = GC9A01(
     spi_speed_hz=40000000
 )
 
-# === Mostra imagem girando (opcional)
+# === Carrega imagem base ===
 base_image = Image.open(img_path).convert("RGB").resize((240, 240))
-angle = 0
-start_time = time.time()
 
-while time.time() - start_time < duration:
-    rotated = base_image.rotate(angle)
-    display.display(rotated)
-    angle = (angle + 5) % 360
-    time.sleep(0.05)
+# === Função para animação da imagem ===
+def animar_imagem():
+    angle = 0
+    start_time = time.time()
+    while time.time() - start_time < duration:
+        rotated = base_image.rotate(angle)
+        display.display(rotated)
+        angle = (angle + 5) % 360
+        time.sleep(0.05)
+    display.display(base_image)
 
-# Imagem final
-display.display(base_image)
+# === Inicia a thread da imagem (som SEMPRE no processo principal)
+imagem_thread = threading.Thread(target=animar_imagem)
+imagem_thread.start()
+
+# === Reproduz o som no processo principal ===
+print("▶️ Tocando áudio...")
+sd.default.device = ('', 1)  # WM8960
+sd.play(data, samplerate)
+sd.wait()
+print("✅ Reprodução finalizada.")
+
+# === Aguarda animação finalizar ===
+imagem_thread.join()
