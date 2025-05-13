@@ -1,18 +1,15 @@
-import sys
 import os
+import sys
 import time
-import subprocess
+import threading
 from PIL import Image
-import spidev
-import RPi.GPIO as GPIO
+from pydub import AudioSegment
+from pydub.playback import _play_with_simpleaudio  # uso interno, mais controle
 
-# === Caminhos absolutos ===
+# === Caminhos ===
 base_dir = os.path.dirname(__file__)
 audio_path = os.path.join(base_dir, "jazz.wav")
 img_path = os.path.join(base_dir, "badbunny.png")
-
-# === Toca o áudio de forma síncrona usando WM8960 (card 1) ===
-subprocess.run(["aplay", "-D", "hw:1,0", audio_path], check=True)
 
 # === Inicializa o display ===
 sys.path.append(os.path.join(base_dir, "library"))
@@ -30,22 +27,29 @@ display = GC9A01(
     spi_speed_hz=40000000
 )
 
-# === Carrega a imagem base ===
+# === Carrega a imagem ===
 base_image = Image.open(img_path).convert("RGB").resize((240, 240))
 
-# === Animação por 70 segundos ===
-# angle = 0
-# start_time = time.time()
-# duration = 70  # segundos
+# === Função para tocar a música ===
+def tocar_musica():
+    som = AudioSegment.from_wav(audio_path)
+    playback = _play_with_simpleaudio(som)
+    playback.wait_done()
 
-# while time.time() - start_time < duration:
-#     rotated = base_image.rotate(angle)
-#     display.display(rotated)
-#     angle = (angle + 5) % 360
-#     time.sleep(0.05)
+# === Roda o áudio em uma thread ===
+audio_thread = threading.Thread(target=tocar_musica)
+audio_thread.start()
+
+# === Animação enquanto a música toca ===
+angle = 0
+start_time = time.time()
+duration = 70  # ajuste para a duração real da música
+
+while time.time() - start_time < duration:
+    rotated = base_image.rotate(angle)
+    display.display(rotated)
+    angle = (angle + 5) % 360
+    time.sleep(0.05)
 
 # Exibe imagem estática ao final
 display.display(base_image)
-
-# === Libera o dispositivo de som para próximas execuções ===
-subprocess.run(["sudo", "fuser", "-k", "/dev/snd/pcmC1D0p"])
