@@ -34,15 +34,15 @@ display = GC9A01(
 base_image = Image.open(img_path).convert("RGB").resize((240, 240))
 
 # === Animação por 70 segundos ===
-angle = 0
-start_time = time.time()
-duration = 70  # segundos
+# angle = 0
+# start_time = time.time()
+# duration = 70  # segundos
 
-while time.time() - start_time < duration:
-    rotated = base_image.rotate(angle)
-    display.display(rotated)
-    angle = (angle + 5) % 360
-    time.sleep(0.05)
+# while time.time() - start_time < duration:
+#     rotated = base_image.rotate(angle)
+#     display.display(rotated)
+#     angle = (angle + 5) % 360
+#     time.sleep(0.05)
 
 # Exibe imagem estática ao final
 display.display(base_image)
