@@ -1,13 +1,12 @@
-import sounddevice as sd
-import numpy as np
+import os
+import subprocess
 import speech_recognition as sr
 import pyttsx3
-import io
-import os
-import sys
 from PIL import Image
+import sys
+import time
 
-# === Inicializa display GC9A01
+# === Inicializa display
 sys.path.append(os.path.join(os.path.dirname(__file__), 'library'))
 from GC9A01 import GC9A01
 
@@ -27,39 +26,40 @@ def mostrar_imagem(nome):
     img = Image.open(nome).convert("RGB").resize((240, 240))
     display.display(img)
 
-# === Configurações de áudio
-SAMPLERATE = 16000
-DURATION = 4  # segundos de escuta por ciclo
-DEVICE_INDEX = 1  # índice do microfone WM8960
-
-# === Inicializa reconhecimento e voz
-recognizer = sr.Recognizer()
+# === Inicializa o TTS
 tts = pyttsx3.init()
 tts.setProperty('rate', 150)
 tts.setProperty('volume', 1.0)
-tts.setProperty('voice', 'pt+f5')  # voz feminina em português (ajustável)
+tts.setProperty('voice', 'pt+f5')
 
 def falar(texto):
-    mostrar_imagem("robot.png")  # mostra a imagem do robô antes de falar
+    mostrar_imagem("robot.png")
     print(f"🤖 Assistente: {texto}")
     tts.say(texto)
     tts.runAndWait()
 
-def ouvir():
-    mostrar_imagem("human.png")  # mostra a imagem do humano antes de escutar
-    print("🎙️ Escutando...")
-    audio_data = sd.rec(int(DURATION * SAMPLERATE), samplerate=SAMPLERATE, channels=1, dtype='int16', device=(DEVICE_INDEX, None))
-    sd.wait()
-    audio_bytes = audio_data.flatten().tobytes()
-    audio_stream = io.BytesIO(audio_bytes)
-    return sr.AudioData(audio_stream.read(), SAMPLERATE, 2)
+def ouvir_e_transcrever():
+    mostrar_imagem("human.png")
+
+    print("🎙️ Gravando...")
+    subprocess.run([
+        "arecord", "-D", "hw:1,0", "-f", "cd",
+        "-t", "wav", "-d", "4", "-q", "voz.wav"
+    ])
+
+    recognizer = sr.Recognizer()
+    with sr.AudioFile("voz.wav") as source:
+        audio = recognizer.record(source)
+
+    print("🧠 Reconhecendo...")
+    return recognizer.recognize_google(audio, language="pt-BR")
 
 def responder(texto):
     texto = texto.lower()
     if "oi" in texto or "olá" in texto:
         return "Olá! Como posso te ajudar hoje?"
     elif "nome" in texto:
-        return "Eu sou o seu assistente de voz no Raspberry Pi."
+        return "Eu sou o seu assistente de voz."
     elif "obrigado" in texto or "valeu" in texto:
         return "De nada! Estou aqui sempre que precisar."
     elif "tchau" in texto:
@@ -72,17 +72,17 @@ print("🟢 Assistente de voz iniciado. Pressione Ctrl+C para sair.")
 
 try:
     while True:
-        audio = ouvir()
-
         try:
-            texto = recognizer.recognize_google(audio, language="pt-BR")
+            texto = ouvir_e_transcrever()
             print(f"🗣️ Você: {texto}")
             resposta = responder(texto)
             falar(resposta)
 
         except sr.UnknownValueError:
-            print("🤷‍♂️ Não entendi. Tente de novo.")
+            print("❌ Não entendi. Pode repetir?")
         except sr.RequestError as e:
-            print(f"❌ Erro de conexão com o serviço de voz: {e}")
+            print(f"❌ Erro ao conectar ao serviço de fala: {e}")
+        except KeyboardInterrupt:
+            raise
 except KeyboardInterrupt:
-    print("\n🔴 Encerrado pelo usuário.")
+    print("\n🔴 Assistente encerrado.")
