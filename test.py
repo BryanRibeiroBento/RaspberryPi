@@ -1,38 +1,36 @@
+#!/usr/bin/env python3
 import os
 import io
+import wave
 import time
 
-import openai
 import sounddevice as sd
 import soundfile as sf
-
-from dotenv import load_dotenv
 import speech_recognition as sr
-
-import wave
+import openai
 import simpleaudio as sa
 
-# ─── Configurações ───────────────────────────────────────────────────────────
-load_dotenv()
+from dotenv import load_dotenv
 
+# ─── Configurações ───────────────────────────────────────────────────────────
+load_dotenv()  # carrega OPENAI_API_KEY do .env
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 RECORD_SECONDS = 4
 RECORD_FILE   = "captura.wav"
 
-# ─── Gravação em WAV via sounddevice ──────────────────────────────────────────
+# ─── Captura de áudio ─────────────────────────────────────────────────────────
 def capturar_audio():
     print("🎙️ Gravando...")
-    # Captura em float32, mas vamos escrever em WAV PCM 16-bit
-    samplerate = 44100
-    data = sd.rec(int(RECORD_SECONDS * samplerate), samplerate=samplerate,
-                  channels=1, dtype='float32', device='default')
+    fs = 44100
+    data = sd.rec(int(RECORD_SECONDS * fs), samplerate=fs,
+                  channels=1, dtype="float32", device="default")
     sd.wait()
-    # Normaliza e converte para int16
-    data16 = (data * 32767).astype('int16')
-    sf.write(RECORD_FILE, data16, samplerate, subtype='PCM_16')
-    print("✅ Captura salva em", RECORD_FILE)
+    data16 = (data * 32767).astype("int16")
+    sf.write(RECORD_FILE, data16, fs, subtype="PCM_16")
+    print("✅ Áudio salvo em", RECORD_FILE)
 
-# ─── Transcrição via Google SpeechRecognition ───────────────────────────────
+# ─── Transcrição ───────────────────────────────────────────────────────────────
 def transcrever():
     r = sr.Recognizer()
     with sr.AudioFile(RECORD_FILE) as src:
@@ -48,7 +46,7 @@ def transcrever():
         print("❌ Erro no serviço:", e)
         return ""
 
-# ─── Chama o ChatGPT para gerar a resposta em texto ──────────────────────────
+# ─── ChatGPT ───────────────────────────────────────────────────────────────────
 def chamar_chatgpt(prompt: str) -> str:
     resp = openai.chat.completions.create(
         model="gpt-3.5-turbo",
@@ -57,57 +55,48 @@ def chamar_chatgpt(prompt: str) -> str:
             {"role": "user",   "content": prompt}
         ]
     )
-    return resp.choices[0].message.content.strip()
+    resposta = resp.choices[0].message.content.strip()
+    print("🤖 GPT diz:", resposta)
+    return resposta
 
-# ─── TTS da OpenAI retornando WAV em memória ─────────────────────────────────
-def texto_para_fala_wav(resposta: str) -> None:
-    # 1) chama a API pedindo WAV
+# ─── TTS (retorna bytes WAV) ──────────────────────────────────────────────────
+def texto_para_fala_wav(texto: str) -> bytes:
     out = openai.audio.speech.create(
         model="tts-1",
         voice="nova",
-        input=resposta,
+        input=texto,
         response_format="wav"
     )
+    return out.content  # bytes do WAV PCM compatível
 
-    # 2) lê em memória
-    wav_bytes = out.content
-    bio = io.BytesIO(wav_bytes)
-    data, samplerate = sf.read(bio, dtype='int16')
-
-    # 3) toca direto no dispositivo 'default' (seu WM8960 multiplexado)
-    sd.play(data, samplerate=samplerate, device='default')
-    sd.wait()
-
-# ─── Reprodução em memória via sounddevice ─────────────────────────────────
-
-
+# ─── Playback com simpleaudio ─────────────────────────────────────────────────
 def tocar_wav_bytes(bytes_wav: bytes):
-    # carrega o WAV em memória
     bio = io.BytesIO(bytes_wav)
-    with wave.open(bio, 'rb') as wf:
-        # cria o WaveObject com parâmetros do arquivo
+    with wave.open(bio, "rb") as wf:
         wave_obj = sa.WaveObject(
             wf.readframes(wf.getnframes()),
             num_channels=wf.getnchannels(),
             bytes_per_sample=wf.getsampwidth(),
             sample_rate=wf.getframerate()
         )
-    # toca e espera terminar
-    play_obj = wave_obj.play()
-    play_obj.wait_done()
+    play = wave_obj.play()
+    play.wait_done()
 
-# ─── Loop principal ─────────────────────────────────────────────────────────
-print("🟢 Assistente 100% Python iniciado. Ctrl+C para sair.\n")
-
+# ─── Loop principal ───────────────────────────────────────────────────────────
+print("🟢 Assistente totalmente Python iniciado. Ctrl+C para sair.\n")
 try:
     while True:
         capturar_audio()
         texto = transcrever()
         if not texto:
             continue
-        resp = chamar_chatgpt(texto)
-        wav_bytes = texto_para_fala_wav(resp)
+
+        resposta = chamar_chatgpt(texto)
+        wav_bytes = texto_para_fala_wav(resposta)
+
+        print("▶️ Reproduzindo resposta...")
         tocar_wav_bytes(wav_bytes)
+        print("✅ Pronto.\n")
         time.sleep(0.5)
 
 except KeyboardInterrupt:
