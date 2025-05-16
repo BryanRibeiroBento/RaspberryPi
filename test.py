@@ -43,6 +43,7 @@ RECORD_FILE   = "captura.wav"
 # ─── Captura de áudio ─────────────────────────────────────────────────────────
 def capturar_audio():
     mostrar_imagem("human.png")
+    time.sleep(0.3)
     print("🎙️ Gravando...")
     fs = 44100
     data = sd.rec(int(RECORD_SECONDS * fs), samplerate=fs,
@@ -94,6 +95,7 @@ def texto_para_fala_wav(texto: str) -> bytes:
 # ─── Playback com simpleaudio ─────────────────────────────────────────────────
 def tocar_wav_bytes(bytes_wav: bytes):
     mostrar_imagem("robot.png")
+    time.sleep(0.3)
     bio = io.BytesIO(bytes_wav)
     with wave.open(bio, "rb") as wf:
         wave_obj = sa.WaveObject(
