@@ -9,6 +9,9 @@ import soundfile as sf
 from dotenv import load_dotenv
 import speech_recognition as sr
 
+import wave
+import simpleaudio as sa
+
 # ─── Configurações ───────────────────────────────────────────────────────────
 load_dotenv()
 
@@ -76,13 +79,20 @@ def texto_para_fala_wav(resposta: str) -> None:
     sd.wait()
 
 # ─── Reprodução em memória via sounddevice ─────────────────────────────────
+
+
 def tocar_wav_bytes(bytes_wav: bytes):
     bio = io.BytesIO(bytes_wav)
-    data, samplerate = sf.read(bio, dtype='int16')
-    print("▶️ Reproduzindo resposta...")
-    sd.play(data, samplerate=samplerate, device='default')
-    sd.wait()
-    print("✅ Reprodução concluída.\n")
+    with wave.open(bio, 'rb') as wf:
+        # cria o WaveObject e toca
+        wave_obj = sa.WaveObject(
+            wf.readframes(wf.getnframes()),
+            num_channels=wf.getnchannels(),
+            bytes_per_sample=wf.getsampwidth(),
+            sample_rate=wf.getframerate()
+        )
+    play_obj = wave_obj.play()
+    play_obj.wait_done()
 
 # ─── Loop principal ─────────────────────────────────────────────────────────
 print("🟢 Assistente 100% Python iniciado. Ctrl+C para sair.\n")
