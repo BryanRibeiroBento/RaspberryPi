@@ -1,29 +1,41 @@
 #!/usr/bin/env python3
-import os, io, wave, time
-import sounddevice as sd, soundfile as sf
+import os
+import io
+import wave
+import time
+
+import sounddevice as sd
+import soundfile as sf
 import speech_recognition as sr
-import openai, simpleaudio as sa
+import openai
+import simpleaudio as sa
+
 from dotenv import load_dotenv
 from PIL import Image
 import sys
 
 # ─── Display GC9A01 ─────────────────────────────────────────
-sys.path.append(os.path.dirname(__file__) + '/library')
+sys.path.append(os.path.join(os.path.dirname(__file__), 'library'))
 from GC9A01 import GC9A01
-display = GC9A01(port=0, cs=0, dc=25, backlight=18, rst=24,
-                 width=240, height=240, rotation=0, spi_speed_hz=40000000)
+display = GC9A01(
+    port=0, cs=0, dc=25, backlight=18, rst=24,
+    width=240, height=240, rotation=0, spi_speed_hz=40000000
+)
 
 def mostrar_imagem(nome):
     img = Image.open(nome).convert("RGB").resize((240,240))
     display.display(img)
 
-# ─── Config ──────────────────────────────────────────────────
+# ─── Configurações ───────────────────────────────────────────
 load_dotenv()
 
 RECORD_SECONDS = 4
-RECORD_FILE = "captura.wav"
+RECORD_FILE   = "captura.wav"
 
-# ─── Grava ────────────────────────────────────────────────────
+# ─── Inicialização única da tela ──────────────────────────────
+mostrar_imagem("robot.png")
+
+# ─── Funções de áudio ──────────────────────────────────────────
 def capturar_audio():
     print("🎙️ Gravando...")
     fs = 44100
@@ -32,9 +44,8 @@ def capturar_audio():
     sd.wait()
     data16 = (data * 32767).astype("int16")
     sf.write(RECORD_FILE, data16, fs, subtype="PCM_16")
-    print("✅ Captura salva")
+    print("✅ Áudio salvo em", RECORD_FILE)
 
-# ─── Transcreve ───────────────────────────────────────────────
 def transcrever():
     r = sr.Recognizer()
     with sr.AudioFile(RECORD_FILE) as src:
@@ -43,31 +54,35 @@ def transcrever():
         texto = r.recognize_google(audio, language="pt-BR")
         print("🗣️ Você disse:", texto)
         return texto
-    except:
+    except sr.UnknownValueError:
         print("❓ Não entendi.")
         return ""
+    except sr.RequestError as e:
+        print("❌ Erro no serviço:", e)
+        return ""
 
-# ─── ChatGPT ─────────────────────────────────────────────────
-def chamar_chatgpt(prompt):
+def chamar_chatgpt(prompt: str) -> str:
     resp = openai.chat.completions.create(
         model="gpt-3.5-turbo",
-        messages=[{"role":"system","content":"Você é um assistente útil."},
-                  {"role":"user",  "content":prompt}]
+        messages=[
+            {"role":"system", "content":"Você é um assistente útil."},
+            {"role":"user",   "content":prompt}
+        ]
     )
     texto = resp.choices[0].message.content.strip()
     print("🤖 GPT diz:", texto)
     return texto
 
-# ─── TTS OpenAI ──────────────────────────────────────────────
-def texto_para_fala_wav(texto):
+def texto_para_fala_wav(texto: str) -> bytes:
     out = openai.audio.speech.create(
-        model="tts-1", voice="nova",
-        input=texto, response_format="wav"
+        model="tts-1",
+        voice="nova",
+        input=texto,
+        response_format="wav"
     )
     return out.content
 
-# ─── Playback ────────────────────────────────────────────────
-def tocar_wav_bytes(bytes_wav):
+def tocar_wav_bytes(bytes_wav: bytes):
     bio = io.BytesIO(bytes_wav)
     with wave.open(bio, "rb") as wf:
         wave_obj = sa.WaveObject(
@@ -81,34 +96,24 @@ def tocar_wav_bytes(bytes_wav):
     play.wait_done()
     print("✅ Pronto.\n")
 
-# ─── Loop principal ──────────────────────────────────────────
-print("🟢 Assistente Python iniciado. Ctrl+C para sair.\n")
+# ─── Loop principal ────────────────────────────────────────────
+print("🟢 Assistente iniciado. Ctrl+C para sair.\n")
 try:
     while True:
-        # 1) Humano
-        mostrar_imagem("human.png")
-        time.sleep(1.0)
-
-        # 2) Grava
         capturar_audio()
-
-        # 3) Transcreve + GPT
-        txt = transcrever()
-        if not txt:
+        texto = transcrever()
+        if not texto:
             continue
-        resp = chamar_chatgpt(txt)
 
-        # 4) Robô
-        mostrar_imagem("robot.png")
-        time.sleep(1.0)
-
-        # 5) TTS + playback
-        wav = texto_para_fala_wav(resp)
-        tocar_wav_bytes(wav)
+        resposta = chamar_chatgpt(texto)
+        wav_bytes = texto_para_fala_wav(resposta)
+        tocar_wav_bytes(wav_bytes)
 
         time.sleep(0.5)
 
 except KeyboardInterrupt:
-    print("\n🔴 Encerrando…")
-    try: os.remove(RECORD_FILE)
-    except: pass
+    print("\n🔴 Encerrando assistente.")
+    try:
+        os.remove(RECORD_FILE)
+    except FileNotFoundError:
+        pass
