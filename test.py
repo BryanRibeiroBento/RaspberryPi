@@ -47,16 +47,14 @@ def transcrever():
 
 # ─── Chama o ChatGPT para gerar a resposta em texto ──────────────────────────
 def chamar_chatgpt(prompt: str) -> str:
-    res = openai.ChatCompletion.create(
+    resp = openai.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
-            {"role":"system", "content":"Você é um assistente útil."},
-            {"role":"user",   "content":prompt}
+            {"role": "system", "content": "Você é um assistente útil."},
+            {"role": "user",   "content": prompt}
         ]
     )
-    resposta = res.choices[0].message.content.strip()
-    print("🤖 GPT diz:", resposta)
-    return resposta
+    return resp.choices[0].message.content.strip()
 
 # ─── TTS da OpenAI retornando WAV em memória ─────────────────────────────────
 def texto_para_fala_wav(resposta: str):
