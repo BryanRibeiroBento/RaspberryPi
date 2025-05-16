@@ -11,31 +11,15 @@ import openai
 import simpleaudio as sa
 
 from dotenv import load_dotenv
-from PIL import Image
-import sys
 
-# ─── Display GC9A01 ─────────────────────────────────────────
-sys.path.append(os.path.join(os.path.dirname(__file__), 'library'))
-from GC9A01 import GC9A01
-display = GC9A01(
-    port=0, cs=0, dc=25, backlight=18, rst=24,
-    width=240, height=240, rotation=0, spi_speed_hz=40000000
-)
-
-def mostrar_imagem(nome):
-    img = Image.open(nome).convert("RGB").resize((240,240))
-    display.display(img)
-
-# ─── Configurações ───────────────────────────────────────────
-load_dotenv()
+# ─── Configurações ───────────────────────────────────────────────────────────
+load_dotenv()  # carrega OPENAI_API_KEY do .env
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 RECORD_SECONDS = 4
 RECORD_FILE   = "captura.wav"
 
-# ─── Inicialização única da tela ──────────────────────────────
-mostrar_imagem("robot.png")
-
-# ─── Funções de áudio ──────────────────────────────────────────
+# ─── Captura de áudio ─────────────────────────────────────────────────────────
 def capturar_audio():
     print("🎙️ Gravando...")
     fs = 44100
@@ -46,6 +30,7 @@ def capturar_audio():
     sf.write(RECORD_FILE, data16, fs, subtype="PCM_16")
     print("✅ Áudio salvo em", RECORD_FILE)
 
+# ─── Transcrição ───────────────────────────────────────────────────────────────
 def transcrever():
     r = sr.Recognizer()
     with sr.AudioFile(RECORD_FILE) as src:
@@ -61,18 +46,20 @@ def transcrever():
         print("❌ Erro no serviço:", e)
         return ""
 
+# ─── ChatGPT ───────────────────────────────────────────────────────────────────
 def chamar_chatgpt(prompt: str) -> str:
     resp = openai.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
-            {"role":"system", "content":"Você é um assistente útil."},
-            {"role":"user",   "content":prompt}
+            {"role": "system", "content": "Você é um assistente útil."},
+            {"role": "user",   "content": prompt}
         ]
     )
-    texto = resp.choices[0].message.content.strip()
-    print("🤖 GPT diz:", texto)
-    return texto
+    resposta = resp.choices[0].message.content.strip()
+    print("🤖 GPT diz:", resposta)
+    return resposta
 
+# ─── TTS (retorna bytes WAV) ──────────────────────────────────────────────────
 def texto_para_fala_wav(texto: str) -> bytes:
     out = openai.audio.speech.create(
         model="tts-1",
@@ -80,8 +67,9 @@ def texto_para_fala_wav(texto: str) -> bytes:
         input=texto,
         response_format="wav"
     )
-    return out.content
+    return out.content  # bytes do WAV PCM compatível
 
+# ─── Playback com simpleaudio ─────────────────────────────────────────────────
 def tocar_wav_bytes(bytes_wav: bytes):
     bio = io.BytesIO(bytes_wav)
     with wave.open(bio, "rb") as wf:
@@ -91,13 +79,11 @@ def tocar_wav_bytes(bytes_wav: bytes):
             bytes_per_sample=wf.getsampwidth(),
             sample_rate=wf.getframerate()
         )
-    print("▶️ Tocando resposta…")
     play = wave_obj.play()
     play.wait_done()
-    print("✅ Pronto.\n")
 
-# ─── Loop principal ────────────────────────────────────────────
-print("🟢 Assistente iniciado. Ctrl+C para sair.\n")
+# ─── Loop principal ───────────────────────────────────────────────────────────
+print("🟢 Assistente totalmente Python iniciado. Ctrl+C para sair.\n")
 try:
     while True:
         capturar_audio()
@@ -107,8 +93,10 @@ try:
 
         resposta = chamar_chatgpt(texto)
         wav_bytes = texto_para_fala_wav(resposta)
-        tocar_wav_bytes(wav_bytes)
 
+        print("▶️ Reproduzindo resposta...")
+        tocar_wav_bytes(wav_bytes)
+        print("✅ Pronto.\n")
         time.sleep(0.5)
 
 except KeyboardInterrupt:
