@@ -57,16 +57,23 @@ def chamar_chatgpt(prompt: str) -> str:
     return resp.choices[0].message.content.strip()
 
 # ─── TTS da OpenAI retornando WAV em memória ─────────────────────────────────
-def texto_para_fala_wav(resposta: str):
-    # Requisição pedindo WAV PCM (não MP3)
+def texto_para_fala_wav(resposta: str) -> None:
+    # 1) chama a API pedindo WAV
     out = openai.audio.speech.create(
         model="tts-1",
         voice="nova",
         input=resposta,
-        audio_format="wav"     # chave para obter WAV em vez de MP3
+        response_format="wav"
     )
-    bytes_wav = out.content   # conteúdo é o WAV PCM 16-bit 44.1kHz estéreo
-    return bytes_wav
+
+    # 2) lê em memória
+    wav_bytes = out.content
+    bio = io.BytesIO(wav_bytes)
+    data, samplerate = sf.read(bio, dtype='int16')
+
+    # 3) toca direto no dispositivo 'default' (seu WM8960 multiplexado)
+    sd.play(data, samplerate=samplerate, device='default')
+    sd.wait()
 
 # ─── Reprodução em memória via sounddevice ─────────────────────────────────
 def tocar_wav_bytes(bytes_wav: bytes):
