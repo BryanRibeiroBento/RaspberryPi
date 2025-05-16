@@ -36,7 +36,6 @@ def mostrar_imagem(nome):
 
 # ─── Configurações ───────────────────────────────────────────────────────────
 load_dotenv()  # carrega OPENAI_API_KEY do .env
-openai.api_key = os.getenv("OPENAI_API_KEY")
 
 RECORD_SECONDS = 4
 RECORD_FILE   = "captura.wav"
