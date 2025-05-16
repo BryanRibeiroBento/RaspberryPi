@@ -11,6 +11,28 @@ import openai
 import simpleaudio as sa
 
 from dotenv import load_dotenv
+from PIL import Image
+import sys
+
+# ─── Display GC9A01 ───────────────────────────────────────────────────────────
+sys.path.append(os.path.join(os.path.dirname(__file__), 'library'))
+from GC9A01 import GC9A01
+
+display = GC9A01(
+    port=0,
+    cs=0,
+    dc=25,
+    backlight=18,
+    rst=24,
+    width=240,
+    height=240,
+    rotation=0,
+    spi_speed_hz=40000000
+)
+
+def mostrar_imagem(nome):
+    img = Image.open(nome).convert("RGB").resize((240,240))
+    display.display(img)
 
 # ─── Configurações ───────────────────────────────────────────────────────────
 load_dotenv()  # carrega OPENAI_API_KEY do .env
@@ -21,6 +43,7 @@ RECORD_FILE   = "captura.wav"
 
 # ─── Captura de áudio ─────────────────────────────────────────────────────────
 def capturar_audio():
+    mostrar_imagem("human.png")
     print("🎙️ Gravando...")
     fs = 44100
     data = sd.rec(int(RECORD_SECONDS * fs), samplerate=fs,
@@ -67,10 +90,11 @@ def texto_para_fala_wav(texto: str) -> bytes:
         input=texto,
         response_format="wav"
     )
-    return out.content  # bytes do WAV PCM compatível
+    return out.content  # bytes do WAV PCM 16-bit 44.1kHz estéreo
 
 # ─── Playback com simpleaudio ─────────────────────────────────────────────────
 def tocar_wav_bytes(bytes_wav: bytes):
+    mostrar_imagem("robot.png")
     bio = io.BytesIO(bytes_wav)
     with wave.open(bio, "rb") as wf:
         wave_obj = sa.WaveObject(
@@ -79,8 +103,10 @@ def tocar_wav_bytes(bytes_wav: bytes):
             bytes_per_sample=wf.getsampwidth(),
             sample_rate=wf.getframerate()
         )
+    print("▶️ Reproduzindo resposta...")
     play = wave_obj.play()
     play.wait_done()
+    print("✅ Pronto.\n")
 
 # ─── Loop principal ───────────────────────────────────────────────────────────
 print("🟢 Assistente totalmente Python iniciado. Ctrl+C para sair.\n")
@@ -93,15 +119,11 @@ try:
 
         resposta = chamar_chatgpt(texto)
         wav_bytes = texto_para_fala_wav(resposta)
-
-        print("▶️ Reproduzindo resposta...")
         tocar_wav_bytes(wav_bytes)
-        print("✅ Pronto.\n")
+
         time.sleep(0.5)
 
 except KeyboardInterrupt:
     print("\n🔴 Encerrando assistente.")
-    try:
+    if os.path.exists(RECORD_FILE):
         os.remove(RECORD_FILE)
-    except FileNotFoundError:
-        pass
