@@ -82,15 +82,17 @@ def texto_para_fala_wav(resposta: str) -> None:
 
 
 def tocar_wav_bytes(bytes_wav: bytes):
+    # carrega o WAV em memória
     bio = io.BytesIO(bytes_wav)
     with wave.open(bio, 'rb') as wf:
-        # cria o WaveObject e toca
+        # cria o WaveObject com parâmetros do arquivo
         wave_obj = sa.WaveObject(
             wf.readframes(wf.getnframes()),
             num_channels=wf.getnchannels(),
             bytes_per_sample=wf.getsampwidth(),
             sample_rate=wf.getframerate()
         )
+    # toca e espera terminar
     play_obj = wave_obj.play()
     play_obj.wait_done()
 
